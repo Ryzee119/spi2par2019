@@ -5,7 +5,7 @@ This is a recreation of a legacy Original Xbox adaptor that allowed you to use e
 
 I have never had one either, so this design has been made from the ground up.
 
-There are two PCB layouts.
+There are two PCB layouts in this repository:
 
 1. More faithful to the legacy spi2par design.
 2. An LCD backpack design that takes advantage of the standard pinout of most HD44780 LCD displays to minimise the amount of wiring needed.
