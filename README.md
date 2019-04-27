@@ -1,6 +1,3 @@
-
-<![endif]-->
-
 # spi2par2019
 
 ## What is it?
