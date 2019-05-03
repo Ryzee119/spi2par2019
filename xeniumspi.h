@@ -1,6 +1,7 @@
 //Based on gathering a few commands using my logic analyser on the Xenium SPI bus, the commands seem to match a screen like this:
 //https://www.crystalfontz.com/products/document/3391/CFA634_Series_Data_Sheet_Release_2015-03-30.pdf
 
+//Xenium SPI Commands
 #define XeniumHideDisplay 2
 #define XeniumShowDisplay 3
 #define XeniumHideCursor 4
@@ -25,14 +26,8 @@
 #define XeniumCursorMove 27 //Followed by 91, then Up 65(0x41),    Down 66 (0x42),    Right 67 (0x43),   Left 68 (0x44) for up,down,right,left
 #define XeniumLargeNumber 28
 
-
+//SPI State Machine
 #define SPI_ACTIVE 0
 #define SPI_IDLE 1
 #define SPI_SYNC 2
 #define SPI_WAIT 3
-
-
-  //SPIIdle=0; Bus just received a command
-  //SPIIdle=1; Bus is idle
-  //SPIIdle=2; Bus CS is forced high because bus has been idle too long.
-  //SPIIdle=3; Bus CS is set low again. State machine finished.

@@ -1,13 +1,9 @@
-//Whilst it is possible to write commands to the SMBUS, I am just reading registers from the SMC.
-
-
 /*
  * XBMC LCD Settings
  * You can what the LCD prints in XBMC dashboard by editing /system/UserData/LCD.xml file
  * Check https://redmine.exotica.org.uk/projects/xbmc4xbox/repository/xbmc4xbox/entry/branches/3.5/xbmc/GUIInfoManager.cpp to see what options are available
  * 
  */
-
 
 
 /*
@@ -39,11 +35,11 @@
 #define SMC_FANSPEED 0x10        //current fan speed (0~50) multiply by 2 to get 0-100%
 
 
-/* XBOX ADM1032 System Temperature Monito
+/* XBOX ADM1032 System Temperature Monitor (Ref http://xboxdevwiki.net/SMBus)
  * https://www.onsemi.com/pub/Collateral/ADM1032-D.PDF
  */
 #define ADM1032_ADDRESS 0x4C  
-#define ADM1032_GPU 0x00             //°C
+#define ADM1032_MB 0x00             //°C
 #define ADM1032_CPU 0x01            //°C
 
 
