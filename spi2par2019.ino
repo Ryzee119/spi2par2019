@@ -4,12 +4,14 @@
 #include <LiquidCrystal.h>
 #include <TFT.h>
 
+
 //Some screens like difference contrast values. So I couldn't really set a good default value
 //Play around and adjust to suit your screen. If you have flickering issues, it may help to solder
-//an extra electrolytic capacitor between the contrast pin (normally labelled 'V0') and GND. 
-#define DEFAULT_CONTRAST 50 //0-255. Lower is higher contrast.
+//an extra electrolytic capacitor between the contrast pin (normally labelled 'V0') and GND.
+#define DEFAULT_CONTRAST 100 //0-255. Lower is higher contrast.
 #define DEFAULT_BACKLIGHT 255 //0-255. Higher is brighter.
 //#define USE_FAHRENHEIT 1 //Uncomment this line to make the in-game temp readouts display in Fahrenheit.
+
 
 //HD44780 LCD Setup
 const uint8_t rs = 18, en = 8, d4 = 7, d5 = 6, d6 = 5, d7 = 4; //HD44780 compliant LCD display pin numbers
@@ -27,15 +29,14 @@ uint8_t QueueProcessPos; //Tracks the current position in the FIFO queue that is
 uint8_t QueueRxPos; //Tracks the current position in the FIFO queue of the unprocessed input data (raw realtime SPI data)
 uint8_t SPIState; //SPI State machine flag to monitor the SPI bus state can = SPI_ACTIVE, SPI_IDLE, SPI_SYNC, SPI_WAIT
 uint32_t SPIIdleTimer; //Tracks how long the SPI bus has been idle for
+
+
+
+//I2C Bus
 uint32_t SMBusTimer; //Timer used to trigger SMBus reads
-
-
-//I2C Bus State
 uint8_t i2cCheckCount = 0;      //Tracks what check we're up to of the i2c bus busy state
 uint8_t I2C_BUSY_CHECKS = 250;  //To ensure we don't interfere with the actual Xbox's SMBus activity, we check the bus for activity for sending.
 //This is how many times we check! Higher=slower but better. 250 is probably overkill
-
-
 
 
 //SPI Bus Receiver Interrupt Routine
@@ -61,12 +62,11 @@ void setup() {
   digitalWrite(ss_out, LOW); //SPI Slave is ready to receive data
 
   Wire.begin(0xDD); //Random address that is different from existing bus devices.
-  TWBR = ((F_CPU / 72000) - 16) / 2; //Change I2C frequency closer to OG Xbox SMBus speed. ~72kHz
+  TWBR = ((F_CPU / 72000) - 16) / 2; //Change I2C frequency closer to OG Xbox SMBus speed. ~72kHz Not compulsory really, but a safe bet
 
   analogWrite(backlightPin, DEFAULT_BACKLIGHT); //0-255 Higher number is brighter.
   analogWrite(contrastPin, DEFAULT_CONTRAST); //0-255 Lower number is higher contrast
 
-  
   hd44780.setCursor(0, 0);
 
 }
@@ -346,18 +346,53 @@ void loop() {
           hd44780.print(VID_CNTL0, HEX); //Not sure what it is. Print the code.
         }
       }
+
+    //Read Conexant Chip to determine video resolution (for Version 1.0 to 1.3 console only)
+    } else if (readSMBus(CONEX_ADDRESS, CONEX_2E, &rxBuffer[0], 1) == 0) {
+      if ((uint8_t)(rxBuffer[0] & 3) == 3) {
+        //Must be HDTV, interlaced (1080i)
+       hd44780.print(" 1080i ");
+
+      } else if ((uint8_t)(rxBuffer[0] & 3) == 2) {
+        //Must be HDTV, Progressive 720p
+        hd44780.print(" 720p  ");
+
+      } else if ((uint8_t)(rxBuffer[0] & 3) == 1 && rxBuffer[0]&CONEX_2E_HDTV_EN) {
+        //Must be SDTV, interlaced 480i
+        hd44780.print(" 480p  ");
+        
+      } else {
+        hd44780.print(" 480i  ");
+      }
+
     }
 
     //Read the CPU and M/B temps directly from the ADM1032 System Temperature Monitor then print to LCD
     if (readSMBus(ADM1032_ADDRESS, ADM1032_CPU, &rxBuffer[0], 1) == 0 &&
         readSMBus(ADM1032_ADDRESS, ADM1032_MB, &rxBuffer[1], 1) == 0) {
       if (rxBuffer[0] < 200 && rxBuffer[1] < 200 && rxBuffer[0] > 0 && rxBuffer[1] > 0) {
-        #ifdef USE_FAHRENHEIT
-          snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cC M/B:%3u%cC ", (uint8_t)((float)rxBuffer[0]*1.8+32.0), (char)223, (uint8_t)((float)rxBuffer[1]*1.8+32.0), (char)223); //(char)223=degree symbol
-        #else
-          snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cC M/B:%3u%cC ", rxBuffer[0], (char)223, rxBuffer[1], (char)223); //(char)223=degree symbol
-        #endif
-        
+    #ifdef USE_FAHRENHEIT
+        snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cC M/B:%3u%cC ", (uint8_t)((float)rxBuffer[0] * 1.8 + 32.0), (char)223,
+                 (uint8_t)((float)rxBuffer[1] * 1.8 + 32.0), (char)223);
+      #else
+        snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cC M/B:%3u%cC ", rxBuffer[0], (char)223, rxBuffer[1], (char)223);
+      #endif
+
+        hd44780.setCursor(0, 3); //Write temperatures to LCD row 3
+        hd44780.print(lineBuffer);
+      }
+
+      //If reading the ADM1032 failed, revert to SMC. Xbox is probably a 1.6.
+    } else if (readSMBus(SMC_ADDRESS, SMC_CPUTEMP, &rxBuffer[0], 1) == 0 &&
+               readSMBus(SMC_ADDRESS, SMC_BOARDTEMP, &rxBuffer[1], 1) == 0) {
+      if (rxBuffer[0] < 200 && rxBuffer[1] < 200 && rxBuffer[0] > 0 && rxBuffer[1] > 0) {
+      #ifdef USE_FAHRENHEIT
+        snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cC M/B:%3u%cC ", (uint8_t)((float)rxBuffer[0] * 1.8 + 32.0), (char)223,
+                 (uint8_t)((float)rxBuffer[1] * 1.8 + 32.0), (char)223);
+      #else
+        snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cC M/B:%3u%cC ", rxBuffer[0], (char)223, rxBuffer[1], (char)223);
+      #endif
+
         hd44780.setCursor(0, 3); //Write temperatures to LCD row 3
         hd44780.print(lineBuffer);
       }
@@ -368,6 +403,7 @@ void loop() {
     SMBusTimer = millis();
 
   }
+  
 
 }
 
