@@ -28,6 +28,7 @@ There is two ways you can do this. Option 1 is the intended way and has a PCB da
 
 #### Option 1 - Arduino module and PCB adaptor
 The standard design
+
 |Part|Qty | Possible Source|
 |--|--|--|
 | Ryzee119's spi2par2019 PCB |1| OSHPark (Bit expensive, 3 boards): <br>[spi2par2019backpack](https://oshpark.com/shared_projects/HGCRYTFI) OR<br> [spi2par2019faithful](https://oshpark.com/shared_projects/7YvM7Fwu) <br> <br> [Elecrow (This is a referral link) ~5USD+shipping for 10 boards:](http://www.elecrow.com/referral-program/MTEzNjlqMnQ=/) <br> Download the required zip file from the [Gerbers Folder](https://github.com/Ryzee119/spi2par2019/tree/master/hardware/gerbers) and upload the zip file to their online ordering service. Use the following PCB properties: <br> `2 layers, 45x30mm, 1.6mm thick, HASL, 1oz copper, no castellated holes, any colour you want!`| 
@@ -46,6 +47,7 @@ Cost of getting ten made works out to roughly $4-5usd each.
 
 #### Option 2 - Arduino module only
 No extra PCB required, no backlight control, slightly harder soldering
+
 |Part|Qty | Possible Source|
 |--|--|--|
 | Arduino Pro Micro Leonardo 5V/16Mhz |1| [Any clones will work](https://www.aliexpress.com/item/New-Pro-Micro-for-arduino-ATmega32U4-5V-16MHz-Module-with-2-row-pin-header-For-Leonardo/32768308647.html). Make sure they're the 5V/16Mhz variant. | 
