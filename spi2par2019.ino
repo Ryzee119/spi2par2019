@@ -350,15 +350,15 @@ void loop() {
     //Read Conexant Chip to determine video resolution (for Version 1.0 to 1.3 console only)
     } else if (readSMBus(CONEX_ADDRESS, CONEX_2E, &rxBuffer[0], 1) == 0) {
       if ((uint8_t)(rxBuffer[0] & 3) == 3) {
-        //Must be HDTV, interlaced (1080i)
+        //Must be 1080i
        hd44780.print(" 1080i ");
 
       } else if ((uint8_t)(rxBuffer[0] & 3) == 2) {
-        //Must be HDTV, Progressive 720p
+        //Must be 720p
         hd44780.print(" 720p  ");
 
       } else if ((uint8_t)(rxBuffer[0] & 3) == 1 && rxBuffer[0]&CONEX_2E_HDTV_EN) {
-        //Must be SDTV, interlaced 480i
+        //Must be 480p
         hd44780.print(" 480p  ");
         
       } else {
