@@ -64,8 +64,8 @@ Cost of getting ten made works out to roughly $3-4usd each.
 
 1. Clone this repository to your PC
 2. Download then install the [Arduino IDE](https://www.arduino.cc/en/Main/Software).
-3. Open `spi2par2019.ino` <br> ![enter image description here](https://i.imgur.com/4Hws0dc.jpg)
-4. Compile by clicking the tick in the top left. <br> ![enter image description here](https://i.imgur.com/opNy2Fo.jpg)
+3. Open `spi2par2019.ino`
+4. Compile by clicking the tick in the top left.
 5. Confirm it has compiled successfully from the console output. <br> ![enter image description here](https://i.imgur.com/iDf2zib.jpg)
 6. Connect a MicroUSB cable between the Arduino Module and the PC. <br> ![enter image description here](https://i.imgur.com/orj2ahq.jpg)
 7. Set the Board Type the `Arduino Leonardo` and the comport correctly. Mine happens to be `COM14`. <br> ![enter image description here](https://i.imgur.com/GXofSoA.jpg)
