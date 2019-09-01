@@ -66,6 +66,10 @@ void setup() {
 
   analogWrite(backlightPin, DEFAULT_BACKLIGHT); //0-255 Higher number is brighter.
   analogWrite(contrastPin, DEFAULT_CONTRAST); //0-255 Lower number is higher contrast
+  
+  //Speed up PWM frequency. Gets rid of flickering
+  TCCR1B &= 0b11111000;
+  TCCR1B |= (1<<CS00);//Change Timer Prescaler for PWM
 
   hd44780.setCursor(0, 0);
 
