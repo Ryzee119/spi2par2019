@@ -376,7 +376,7 @@ void loop() {
         readSMBus(ADM1032_ADDRESS, ADM1032_MB, &rxBuffer[1], 1) == 0) {
       if (rxBuffer[0] < 200 && rxBuffer[1] < 200 && rxBuffer[0] > 0 && rxBuffer[1] > 0) {
     #ifdef USE_FAHRENHEIT
-        snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cC M/B:%3u%cC ", (uint8_t)((float)rxBuffer[0] * 1.8 + 32.0), (char)223,
+        snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cF M/B:%3u%cF ", (uint8_t)((float)rxBuffer[0] * 1.8 + 32.0), (char)223,
                  (uint8_t)((float)rxBuffer[1] * 1.8 + 32.0), (char)223);
       #else
         snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cC M/B:%3u%cC ", rxBuffer[0], (char)223, rxBuffer[1], (char)223);
