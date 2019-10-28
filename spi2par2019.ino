@@ -1,9 +1,8 @@
 #include "xeniumspi.h"
 #include "xboxsmbus.h"
 #include "src/SMWire/SMWire.h"
-#include <LiquidCrystal.h>
-#include <TFT.h>
-
+#include "src/lcd/lcd.h"
+//#include <Serial.h>
 
 //Some screens like difference contrast values. So I couldn't really set a good default value
 //Play around and adjust to suit your screen. If you have flickering issues, it may help to solder
@@ -24,7 +23,7 @@ LiquidCrystal hd44780(rs, en, d4, d5, d6, d7); //Constructor for the LCD.
 
 
 //SPI Data
-uint8_t RxCommandQueue[256]; //Input FIFO buffer for raw SPI data from Xenium
+int16_t RxCommandQueue[256]; //Input FIFO buffer for raw SPI data from Xenium
 uint8_t QueueProcessPos; //Tracks the current position in the FIFO queue that is being processed
 uint8_t QueueRxPos; //Tracks the current position in the FIFO queue of the unprocessed input data (raw realtime SPI data)
 uint8_t SPIState; //SPI State machine flag to monitor the SPI bus state can = SPI_ACTIVE, SPI_IDLE, SPI_SYNC, SPI_WAIT
@@ -35,8 +34,7 @@ uint32_t SPIIdleTimer; //Tracks how long the SPI bus has been idle for
 //I2C Bus
 uint32_t SMBusTimer; //Timer used to trigger SMBus reads
 uint8_t i2cCheckCount = 0;      //Tracks what check we're up to of the i2c bus busy state
-uint8_t I2C_BUSY_CHECKS = 250;  //To ensure we don't interfere with the actual Xbox's SMBus activity, we check the bus for activity for sending.
-//This is how many times we check! Higher=slower but better. 250 is probably overkill
+uint8_t I2C_BUSY_CHECKS = 5;  //To ensure we don't interfere with the actual Xbox's SMBus activity, we check the bus for activity for sending.
 
 
 //SPI Bus Receiver Interrupt Routine
@@ -44,6 +42,7 @@ ISR (SPI_STC_vect) {
   RxCommandQueue[QueueRxPos] = SPDR;
   QueueRxPos++; //This is an unsigned 8 bit variable, so will reset back to 0 after 255 automatically
   SPIState = SPI_ACTIVE;
+
 }
 
 void setup() {
@@ -51,6 +50,7 @@ void setup() {
   digitalWrite(ss_out, HIGH); //Force SPI CS signal high while we setup
   hd44780.begin(20, 4);
   hd44780.noCursor();
+  memset(RxCommandQueue, -1, 256);
 
 
   //I put my logic analyser on the Xenium SPI bus to confirm the bus properties.
@@ -59,56 +59,54 @@ void setup() {
   SPCR |= _BV(SPIE);  //Enable to SPI Interrupt Vector
   SPCR |= _BV(CPOL);  //SPI Clock is high when inactive
   SPCR |= _BV(CPHA);  //Data is Valid on Clock Trailing Edge
-  digitalWrite(ss_out, LOW); //SPI Slave is ready to receive data
 
   Wire.begin(0xDD); //Random address that is different from existing bus devices.
   TWBR = ((F_CPU / 72000) - 16) / 2; //Change I2C frequency closer to OG Xbox SMBus speed. ~72kHz Not compulsory really, but a safe bet
 
   analogWrite(backlightPin, DEFAULT_BACKLIGHT); //0-255 Higher number is brighter.
   analogWrite(contrastPin, DEFAULT_CONTRAST); //0-255 Lower number is higher contrast
-  
+
   //Speed up PWM frequency. Gets rid of flickering
   TCCR1B &= 0b11111000;
-  TCCR1B |= (1<<CS00);//Change Timer Prescaler for PWM
-
+  TCCR1B |= (1 << CS00); //Change Timer Prescaler for PWM
   hd44780.setCursor(0, 0);
+
+  delay(250);
+  digitalWrite(ss_out, LOW); //SPI Slave is ready to receive data
 
 }
 
 void loop() {
-  delayMicroseconds(50);
-
   //SPI to Parallel Conversion State Machine
-  //One completion of processing command, set the buffer data value to 0
+  //One completion of processing command, set the buffer data value to -1
   //to indicate processing has been completed.
   if (QueueRxPos != QueueProcessPos) {
     switch (RxCommandQueue[QueueProcessPos]) {
-      case 0:
+      case -1:
         //No action required.
-        RxCommandQueue[QueueProcessPos] = 0;
         break;
 
       case XeniumHideDisplay:
         hd44780.noDisplay();
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumShowDisplay:
         hd44780.display();
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumHideCursor:
         hd44780.noCursor();
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumShowUnderLineCursor:
       case XeniumShowBlockCursor:
       case XeniumShowInvertedCursor:
-        //hd44780.cursor();
-        //hd44780.blink();
-        RxCommandQueue[QueueProcessPos] = 0;
+        hd44780.cursor();
+        hd44780.blink();
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumBackspace:
@@ -118,7 +116,7 @@ void loop() {
           hd44780.print(" ");
           hd44780.setCursor(cursorPosCol, cursorPosRow);
         }
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumLineFeed: //Move Cursor down one row, but keep column
@@ -126,13 +124,13 @@ void loop() {
           cursorPosRow++;
           hd44780.setCursor(cursorPosCol, cursorPosRow);
         }
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumDeleteInPlace: //Delete the character at the current cursor position
         hd44780.print(" ");
         hd44780.setCursor(cursorPosCol, cursorPosRow);
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumFormFeed: //Formfeed just clears the screen and resets the cursor.
@@ -140,27 +138,26 @@ void loop() {
         cursorPosRow = 0;
         cursorPosCol = 0;
         hd44780.setCursor(cursorPosCol, cursorPosRow);
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumCarriageReturn: //Carriage returns moves the cursor to the start of the current line
         cursorPosCol = 0;
         hd44780.setCursor(cursorPosCol, cursorPosRow);
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumSetCursorPosition: //Sets the row and column of cursor. The following two bytes are the row and column.
-        if (RxCommandQueue[(uint8_t)(QueueProcessPos + 3)] != 0) {
+        if (RxCommandQueue[(uint8_t)(QueueProcessPos + 2)] != -1) {
           uint8_t col = RxCommandQueue[(uint8_t)(QueueProcessPos + 1)]; //Column
           uint8_t row = RxCommandQueue[(uint8_t)(QueueProcessPos + 2)]; //Row
           if (col < 20 && row < 4) {
             hd44780.setCursor(col, row);
             cursorPosCol = col, cursorPosRow = row;
           }
-          RxCommandQueue[(uint8_t)(QueueProcessPos)]     = 0;
-          RxCommandQueue[(uint8_t)(QueueProcessPos + 1)] = 0;
-          RxCommandQueue[(uint8_t)(QueueProcessPos + 2)] = 0;
-          RxCommandQueue[QueueProcessPos] = 0;
+          RxCommandQueue[(uint8_t)(QueueProcessPos)]     = -1;
+          RxCommandQueue[(uint8_t)(QueueProcessPos + 1)] = -1;
+          RxCommandQueue[(uint8_t)(QueueProcessPos + 2)] = -1;
         }
         break;
 
@@ -168,13 +165,13 @@ void loop() {
         //The following byte after the backlight command is the brightness value
         //Value is 0-100 for the backlight brightness. 0=OFF, 100=ON
         //AVR PWM Output is 0-255. We multiply by 2.55 to match AVR PWM range.
-        if ((QueueRxPos - QueueProcessPos) > 1 || (QueueRxPos - 1) < QueueProcessPos) { //ensure the command is complete
+        if (RxCommandQueue[(uint8_t)(QueueProcessPos + 1)] != -1) { //ensure the command is complete
           uint8_t brightness = RxCommandQueue[(uint8_t)(QueueProcessPos + 1)];
           if (brightness >= 0 && brightness <= 100) {
             analogWrite(backlightPin, (uint8_t)(brightness * 2.55f)); //0-255 for AVR PWM
           }
-          RxCommandQueue[QueueProcessPos] = 0;
-          RxCommandQueue[(uint8_t)(QueueProcessPos + 1)] = 0;
+          RxCommandQueue[QueueProcessPos] = -1;
+          RxCommandQueue[(uint8_t)(QueueProcessPos + 1)] = -1;
         }
         break;
 
@@ -182,13 +179,13 @@ void loop() {
         //The following byte after the contrast command is the contrast value
         //Value is 0-100 0=Very Light, 100=Very Dark
         //AVR PWM Output is 0-255. We multiply by 2.55 to match AVR PWM range.
-        if ((QueueRxPos - QueueProcessPos) > 1 || (QueueRxPos - 1) < QueueProcessPos) { //ensure the command is complete
+        if (RxCommandQueue[(uint8_t)(QueueProcessPos + 1)] != -1) { //ensure the command is complete
           uint8_t contrastValue = 100 - RxCommandQueue[(uint8_t)(QueueProcessPos + 1)]; //needs to convert to 100-0 instead of 0-100.
           if (contrastValue >= 0 && contrastValue <= 100) {
             analogWrite(contrastPin, (uint8_t)(contrastValue * 2.55f));
           }
-          RxCommandQueue[QueueProcessPos] = 0;
-          RxCommandQueue[(uint8_t)(QueueProcessPos + 1)] = 0;
+          RxCommandQueue[QueueProcessPos] = -1;
+          RxCommandQueue[(uint8_t)(QueueProcessPos + 1)] = -1;
         }
         break;
 
@@ -196,14 +193,14 @@ void loop() {
         cursorPosRow = 0;
         cursorPosCol = 0;
         hd44780.begin(20, 4);
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumCursorMove:
         //The following 2 bytes after the initial command is the direction to move the cursor
         //offset+1 is always 27, offset+2 is 65,66,67,68 for Up,Down,Right,Left
         if (RxCommandQueue[(uint8_t)(QueueProcessPos + 1)] == 27 &&
-            RxCommandQueue[(uint8_t)(QueueProcessPos + 2)] != 0) {
+            RxCommandQueue[(uint8_t)(QueueProcessPos + 2)] != -1) {
 
           switch (RxCommandQueue[(uint8_t)(QueueProcessPos + 2)]) {
             case 65: //UP
@@ -223,9 +220,9 @@ void loop() {
               break;
           }
           hd44780.setCursor(cursorPosCol, cursorPosRow);
-          RxCommandQueue[QueueProcessPos] = 0;
-          RxCommandQueue[(uint8_t)(QueueProcessPos + 1)] = 0;
-          RxCommandQueue[(uint8_t)(QueueProcessPos + 2)] = 0;
+          RxCommandQueue[QueueProcessPos] = -1;
+          RxCommandQueue[(uint8_t)(QueueProcessPos + 1)] = -1;
+          RxCommandQueue[(uint8_t)(QueueProcessPos + 2)] = -1;
         }
         break;
 
@@ -234,22 +231,22 @@ void loop() {
       //My testing seems to indicates it's not really needed.
       case XeniumWrapOff:
         wrapping = 0;
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumWrapOn:
         wrapping = 1;
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumScrollOff:
         scrolling = 0;
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case XeniumScrollOn:
         scrolling = 1;
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
       case  32 ... 255: //Just an ASCII character
@@ -258,26 +255,24 @@ void loop() {
           hd44780.write(RxCommandQueue[QueueProcessPos]);
           cursorPosCol++;
         }
-        RxCommandQueue[QueueProcessPos] = 0;
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
 
-      //Not implemented yet
-      case XeniumDrawBarGraph:
-      case XeniumCustomCharacter:
+      //Not implemented. Dont seem to be used anyway.
       case XeniumLargeNumber:
+      case XeniumDrawBarGraph:
+      case XeniumModuleConfig:
+      case XeniumCustomCharacter:
       default:
         //hd44780.setCursor(0, 0);
         //hd44780.print("Not implemented ");
-        //hd44780.print(RxCommandQueue[QueueProcessPos], HEX);
+        //hd44780.print(RxCommandQueue[QueueProcessPos], DEC);
         //hd44780.setCursor(cursorPosCol, cursorPosRow);
-        RxCommandQueue[QueueProcessPos] = 0;
-        digitalWrite(ss_out, HIGH); //Force a resync
-        delay(50);
-        digitalWrite(ss_out, LOW);
+        RxCommandQueue[QueueProcessPos] = -1;
         break;
     }
 
-    if (RxCommandQueue[QueueProcessPos] == 0) {
+    if (RxCommandQueue[QueueProcessPos] == -1) {
       QueueProcessPos++;
     }
 
@@ -287,17 +282,8 @@ void loop() {
   //If SPI bus has been idle pulse the CS line to resync the bus.
   //Xenium SPI bus doesnt use a Chip select line to resync the bus so this is a bit hacky, but improved reliability
   if (SPIState == SPI_ACTIVE) {
-    SPIState = SPI_IDLE;
-    SPIIdleTimer = millis();
-
-  } else if (SPIState == SPI_IDLE && (millis() - SPIIdleTimer) > 150) {
-    SPIState = SPI_SYNC;
-    digitalWrite(ss_out, HIGH);
-    SPIIdleTimer = millis();
-
-  } else if (SPIState == SPI_SYNC && (millis() - SPIIdleTimer) > 50) {
-    digitalWrite(ss_out, LOW);
     SPIState = SPI_WAIT;
+    SPIIdleTimer = millis();
   }
 
 
@@ -351,11 +337,11 @@ void loop() {
         }
       }
 
-    //Read Conexant Chip to determine video resolution (for Version 1.0 to 1.3 console only)
+      //Read Conexant Chip to determine video resolution (for Version 1.0 to 1.3 console only)
     } else if (readSMBus(CONEX_ADDRESS, CONEX_2E, &rxBuffer[0], 1) == 0) {
       if ((uint8_t)(rxBuffer[0] & 3) == 3) {
         //Must be 1080i
-       hd44780.print(" 1080i ");
+        hd44780.print(" 1080i ");
 
       } else if ((uint8_t)(rxBuffer[0] & 3) == 2) {
         //Must be 720p
@@ -364,31 +350,20 @@ void loop() {
       } else if ((uint8_t)(rxBuffer[0] & 3) == 1 && rxBuffer[0]&CONEX_2E_HDTV_EN) {
         //Must be 480p
         hd44780.print(" 480p  ");
-        
+
       } else {
         hd44780.print(" 480i  ");
       }
 
     }
 
-    //Read the CPU and M/B temps directly from the ADM1032 System Temperature Monitor then print to LCD
-    if (readSMBus(ADM1032_ADDRESS, ADM1032_CPU, &rxBuffer[0], 1) == 0 &&
-        readSMBus(ADM1032_ADDRESS, ADM1032_MB, &rxBuffer[1], 1) == 0) {
-      if (rxBuffer[0] < 200 && rxBuffer[1] < 200 && rxBuffer[0] > 0 && rxBuffer[1] > 0) {
-    #ifdef USE_FAHRENHEIT
-        snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cF M/B:%3u%cF ", (uint8_t)((float)rxBuffer[0] * 1.8 + 32.0), (char)223,
-                 (uint8_t)((float)rxBuffer[1] * 1.8 + 32.0), (char)223);
-      #else
-        snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cC M/B:%3u%cC ", rxBuffer[0], (char)223, rxBuffer[1], (char)223);
-      #endif
-
-        hd44780.setCursor(0, 3); //Write temperatures to LCD row 3
-        hd44780.print(lineBuffer);
-      }
-
-      //If reading the ADM1032 failed, revert to SMC. Xbox is probably a 1.6.
-    } else if (readSMBus(SMC_ADDRESS, SMC_CPUTEMP, &rxBuffer[0], 1) == 0 &&
-               readSMBus(SMC_ADDRESS, SMC_BOARDTEMP, &rxBuffer[1], 1) == 0) {
+    //Read the CPU and M/B temps
+    //Try ADM1032
+    if ((readSMBus(ADM1032_ADDRESS, ADM1032_CPU, &rxBuffer[0], 1) == 0 &&
+         readSMBus(ADM1032_ADDRESS, ADM1032_MB, &rxBuffer[1], 1) == 0)  ||
+    //If fails, its probably a 1.6. Read SMC instead.
+        (readSMBus(SMC_ADDRESS, SMC_CPUTEMP, &rxBuffer[0], 1) == 0 &&
+         readSMBus(SMC_ADDRESS, SMC_BOARDTEMP, &rxBuffer[1], 1) == 0)) {
       if (rxBuffer[0] < 200 && rxBuffer[1] < 200 && rxBuffer[0] > 0 && rxBuffer[1] > 0) {
       #ifdef USE_FAHRENHEIT
         snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cF M/B:%3u%cF ", (uint8_t)((float)rxBuffer[0] * 1.8 + 32.0), (char)223,
@@ -396,19 +371,16 @@ void loop() {
       #else
         snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cC M/B:%3u%cC ", rxBuffer[0], (char)223, rxBuffer[1], (char)223);
       #endif
-
         hd44780.setCursor(0, 3); //Write temperatures to LCD row 3
         hd44780.print(lineBuffer);
       }
+      SMBusTimer = millis();
     }
-    SMBusTimer = millis();
 
   } else if (SPIState != SPI_WAIT) {
     SMBusTimer = millis();
 
   }
-  
-
 }
 
 /*

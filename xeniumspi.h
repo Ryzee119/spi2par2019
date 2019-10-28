@@ -2,6 +2,7 @@
 //https://www.crystalfontz.com/products/document/3391/CFA634_Series_Data_Sheet_Release_2015-03-30.pdf
 
 //Xenium SPI Commands
+#define XeniumCursorHome 1
 #define XeniumHideDisplay 2
 #define XeniumShowDisplay 3
 #define XeniumHideCursor 4
@@ -9,6 +10,7 @@
 #define XeniumShowBlockCursor 6
 #define XeniumShowInvertedCursor 7
 #define XeniumBackspace 8
+#define XeniumModuleConfig 9
 #define XeniumLineFeed 10
 #define XeniumDeleteInPlace 11
 #define XeniumFormFeed 12 //Clears and resets cursor to home
