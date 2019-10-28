@@ -79,5 +79,5 @@ Cost of getting ten made works out to roughly $3-4usd each.
 ![spi2par2019 connection diagram alt](https://raw.githubusercontent.com/Ryzee119/spi2par2019/master/images/spi2par_connection2.jpg)
 
 ## Further Setup
-
-Will add soon.
+If using XBMC, there appears to be a bug in the way the large text is printed to the LCD screen when used with a Xenium. This can cause the LCD screen to stop working when the screen saver starts.
+It is recommended to edit the /system/UserData/LCD.xml file and replace instances of `LCD.TimeWide21` or `LCD.TimeWide22` with something different. Perhaps `LCD.cputemperature` and `LCD.gputemperature` or if you want time, use the standard font (`System.Time`).
