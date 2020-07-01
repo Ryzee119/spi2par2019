@@ -358,19 +358,19 @@ void loop() {
 
         if (VID_CNTL0 & FOCUS_VIDCNTL_VSYNC5_6 && VID_CNTL0 & FOCUS_VIDCNTL_INT_PROG) {
           //Must be HDTV, interlaced (1080i)
-          hd44780.print(" 1080i ");
+          hd44780.print(" 1080i  ");
 
         } else if (VID_CNTL0 & FOCUS_VIDCNTL_VSYNC5_6 && !(VID_CNTL0 & FOCUS_VIDCNTL_INT_PROG)) {
           //Must be HDTV, Progressive 720p
-          hd44780.print(" 720p  ");
+          hd44780.print(" 720p   ");
 
         } else if (!(VID_CNTL0 & FOCUS_VIDCNTL_VSYNC5_6) && VID_CNTL0 & FOCUS_VIDCNTL_INT_PROG) {
           //Must be SDTV, interlaced 480i
-          hd44780.print(" 480i  ");
+          hd44780.print(" 480i    ");
 
         } else if (!(VID_CNTL0 & FOCUS_VIDCNTL_VSYNC5_6) && !(VID_CNTL0 & FOCUS_VIDCNTL_INT_PROG)) {
           //Must be SDTV, Progressive 480p
-          hd44780.print(" 480p  ");
+          hd44780.print(" 480p    ");
 
         } else {
           hd44780.print(VID_CNTL0, HEX); //Not sure what it is. Print the code.
@@ -446,7 +446,7 @@ uint8_t i2cBusy() {
      len: How many bytes to read
      returns: 0 on success, -1 on error.
 */
-int8_t readSMBus(uint8_t address, uint8_t command, uint8_t* rx, uint8_t len) {
+int8_t readSMBus(uint8_t address, uint8_t command, char* rx, uint8_t len) {
   Wire.beginTransmission(address);
   Wire.write(command);
   if (Wire.endTransmission(false) == 0) { //Needs to be false. Send I2c repeated start, dont release bus yet
