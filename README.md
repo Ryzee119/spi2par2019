@@ -48,11 +48,11 @@ No extra PCB required, no backlight control, slightly harder soldering
 1. Clone this repository to your PC
 2. Download then install the [Arduino IDE](https://www.arduino.cc/en/Main/Software).
 3. Copy `spi2par2019` to your Sketch folder and open the `.ino` file.
-4. Compile by clicking the tick in the top left.
+4. Set the Board Type the `Arduino Leonardo` and the comport correctly.
+5. Compile by clicking the tick in the top left.
 5. Confirm it has compiled successfully from the console output.  
-6. Connect a MicroUSB cable between the Arduino Module and the PC.  
-7. Set the Board Type the `Arduino Leonardo` and the comport correctly.
-8. Click the upload button and confirm successful. The LCD backlight should come on but no text will be displayed until connected to a Xenium or the Xbox SMBus.
+6. Connect a MicroUSB cable between the Arduino Module and the PC.   
+7. Click the upload button and confirm successful. The LCD backlight should come on but no text will be displayed until connected to a Xenium or the Xbox SMBus.
 
 ## Installation
 <img src="./images/spi2par_connection.jpg" alt="spi2par2019 connection diagram" width="75%"/>
