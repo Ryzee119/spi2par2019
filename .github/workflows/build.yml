@@ -24,4 +24,4 @@ jobs:
         arduino-cli lib install LiquidCrystal
       
     - name: Compile Sketch
-      run: arduino-cli compile -b arduino:avr:leonardo
+      run: arduino-cli compile -b arduino:avr:leonardo --warnings "default"
