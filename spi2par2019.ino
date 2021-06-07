@@ -10,12 +10,12 @@
 #define DEFAULT_BACKLIGHT 255 //0-255. Higher is brighter.
 //#define USE_FAHRENHEIT 1 //Uncomment this line to make the in-game temp readouts display in Fahrenheit.
 
-//Use the following lines to set the LCD display size; only displays of 20/16 columns and 4 rows are supported.
+//Use the following lines to set the LCD display size; currently only displays of 20/16 columns and 4 rows are supported.
 //16 column displays will have issues with the dashboard display as these are all expecting 20 column displays.
 #define LCD_ROW 4
 #define LCD_COL 20
-#define LCD_16_COL 0 //set this to 1 if using a 16 column display
-#ifdef LCD_16_COL
+
+#if (LCD_COL == 16)
         #define tempDisplayF "CPU:%3u%c MB:%3u%c"
         #define tempDisplayC "CPU:%3u%c MB:%3u%c"
         #define tenEightyI "1080i "
