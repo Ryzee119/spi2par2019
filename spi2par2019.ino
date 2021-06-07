@@ -10,6 +10,30 @@
 #define DEFAULT_BACKLIGHT 255 //0-255. Higher is brighter.
 //#define USE_FAHRENHEIT 1 //Uncomment this line to make the in-game temp readouts display in Fahrenheit.
 
+//Use the following lines to set the LCD display size; currently only displays of 20/16 columns and 4 rows are supported.
+//16 column displays will have issues with the dashboard display as these are all expecting 20 column displays.
+#define LCD_ROW 4
+#define LCD_COL 20
+
+#if (LCD_COL == 16)
+        #define tempDisplayF "CPU:%3u%c MB:%3u%c"
+        #define tempDisplayC "CPU:%3u%c MB:%3u%c"
+        #define tenEightyI "1080i "
+        #define sevenTwentyP "720p "
+        #define fourEightyI "480i "
+        #define fourEightyP "480p "
+        #define fanSpeed "FAN: %3u%%  "
+#else
+        #define tempDisplayF "CPU:%3u%cF M/B:%3u%cF "
+        #define tempDisplayC "CPU:%3u%cC M/B:%3u%cC "
+        #define tenEightyI " 1080i  "
+        #define sevenTwentyP " 720p   "
+        #define fourEightyI " 480i    "
+        #define fourEightyP " 480p    "
+        #define fanSpeed "FAN: %3u%%   "
+
+#endif
+
 
 //HD44780 LCD Setup
 const uint8_t rs = 18, en = 8, d4 = 7, d5 = 6, d6 = 5, d7 = 4; //HD44780 compliant LCD display pin numbers
@@ -54,7 +78,7 @@ void setup() {
     hd44780.createChar(i, &chars[i][0]);
   }
 
-  hd44780.begin(20, 4);
+  hd44780.begin(LCD_COL, LCD_ROW);
   hd44780.noCursor();
 
   memset(RxQueue, -1, 256);
@@ -101,6 +125,7 @@ void loop() {
   //SPI to Parallel Conversion State Machine
   //One completion of processing command, set the buffer data value to -1
   //to indicate processing has been completed.
+
 
   if (QueueRxPos != QueuePos) {
     switch (RxQueue[(uint8_t)QueuePos]) {
@@ -149,7 +174,7 @@ void loop() {
         break;
 
       case XeniumLineFeed: //Move Cursor down one row, but keep column
-        if (cursorPosRow < 3) {
+        if (cursorPosRow < LCD_ROW - 1) {
           cursorPosRow++;
           hd44780.setCursor(cursorPosCol, cursorPosRow);
         }
@@ -180,7 +205,7 @@ void loop() {
         if (RxQueue[(uint8_t)(QueuePos + 2)] != -1) {
           uint8_t col = RxQueue[(uint8_t)(QueuePos + 1)]; //Column
           uint8_t row = RxQueue[(uint8_t)(QueuePos + 2)]; //Row
-          if (col < 20 && row < 4) {
+          if (col < LCD_COL && row < LCD_ROW) {
             hd44780.setCursor(col, row);
             cursorPosCol = col, cursorPosRow = row;
           }
@@ -221,7 +246,7 @@ void loop() {
       case XeniumReboot:
         cursorPosRow = 0;
         cursorPosCol = 0;
-        hd44780.begin(20, 4);
+        hd44780.begin(LCD_COL, LCD_ROW);
         completeCommand(&RxQueue[(uint8_t)QueuePos]);
         break;
 
@@ -236,10 +261,10 @@ void loop() {
               if (cursorPosRow > 0) cursorPosRow--;
               break;
             case 66: //DOWN
-              if (cursorPosRow < 3) cursorPosRow++;
+              if (cursorPosRow < (LCD_ROW - 1) ) cursorPosRow++;
               break;
             case 67: //RIGHT
-              if (cursorPosCol < 19) cursorPosCol++;
+              if (cursorPosCol < (LCD_COL - 1)) cursorPosCol++;
               break;
             case 68: //LEFT
               if (cursorPosCol > 0) cursorPosCol--;
@@ -279,7 +304,7 @@ void loop() {
         break;
 
       case  32 ... 255: //Just an ASCII character
-        if (cursorPosCol < 20) {
+        if (cursorPosCol < LCD_COL) {
           hd44780.setCursor(cursorPosCol, cursorPosRow);
           hd44780.write((char)RxQueue[(uint8_t)QueuePos]);
           cursorPosCol++;
@@ -332,10 +357,10 @@ void loop() {
   //and the SPI Bus has been idle for >10 seconds (i.e in a game or app that doesnt support LCD)
   if (i2cBusy() == 0 &&
       (millis() - SMBusTimer)   > 2000 &&
-      (millis() - SPIIdleTimer) > 10000) {
+      (millis() - SPIIdleTimer) > 10000){ 
 
     char rxBuffer[20];    //Raw data received from SMBus
-    char lineBuffer[20]; //Fomatted data for printing to LCD
+    char lineBuffer[LCD_COL]; //Fomatted data for printing to LCD 
 
 
     //Read the current fan speed directly from the SMC and print to LCD
@@ -348,7 +373,6 @@ void loop() {
     }
 
 
-
     //Read Focus Chip to determine video resolution (for Version 1.4 console only)
     if (readSMBus(FOCUS_ADDRESS, FOCUS_PID, &rxBuffer[0], 2) == 0) {
       uint16_t PID = ((uint16_t)rxBuffer[1]) << 8 | rxBuffer[0];
@@ -358,19 +382,19 @@ void loop() {
 
         if (VID_CNTL0 & FOCUS_VIDCNTL_VSYNC5_6 && VID_CNTL0 & FOCUS_VIDCNTL_INT_PROG) {
           //Must be HDTV, interlaced (1080i)
-          hd44780.print(" 1080i  ");
+          hd44780.print(tenEightyI);
 
         } else if (VID_CNTL0 & FOCUS_VIDCNTL_VSYNC5_6 && !(VID_CNTL0 & FOCUS_VIDCNTL_INT_PROG)) {
           //Must be HDTV, Progressive 720p
-          hd44780.print(" 720p   ");
+          hd44780.print(sevenTwentyP);
 
         } else if (!(VID_CNTL0 & FOCUS_VIDCNTL_VSYNC5_6) && VID_CNTL0 & FOCUS_VIDCNTL_INT_PROG) {
           //Must be SDTV, interlaced 480i
-          hd44780.print(" 480i    ");
+          hd44780.print(fourEightyI);
 
         } else if (!(VID_CNTL0 & FOCUS_VIDCNTL_VSYNC5_6) && !(VID_CNTL0 & FOCUS_VIDCNTL_INT_PROG)) {
           //Must be SDTV, Progressive 480p
-          hd44780.print(" 480p    ");
+          hd44780.print(fourEightyP);
 
         } else {
           hd44780.print(VID_CNTL0, HEX); //Not sure what it is. Print the code.
@@ -381,18 +405,18 @@ void loop() {
     } else if (readSMBus(CONEX_ADDRESS, CONEX_2E, &rxBuffer[0], 1) == 0) {
       if ((uint8_t)(rxBuffer[0] & 3) == 3) {
         //Must be 1080i
-        hd44780.print(" 1080i ");
+        hd44780.print(tenEightyI);
 
       } else if ((uint8_t)(rxBuffer[0] & 3) == 2) {
         //Must be 720p
-        hd44780.print(" 720p  ");
+        hd44780.print(sevenTwentyP);
 
       } else if ((uint8_t)(rxBuffer[0] & 3) == 1 && rxBuffer[0]&CONEX_2E_HDTV_EN) {
         //Must be 480p
-        hd44780.print(" 480p  ");
+        hd44780.print(fourEightyP);
 
       } else {
-        hd44780.print(" 480i  ");
+        hd44780.print(fourEightyI);
       }
 
     }
@@ -406,10 +430,10 @@ void loop() {
          readSMBus(SMC_ADDRESS, SMC_BOARDTEMP, &rxBuffer[1], 1) == 0)) {
       if (rxBuffer[0] < 200 && rxBuffer[1] < 200 && rxBuffer[0] > 0 && rxBuffer[1] > 0) {
 #ifdef USE_FAHRENHEIT
-        snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cF M/B:%3u%cF ", (uint8_t)((float)rxBuffer[0] * 1.8 + 32.0), (char)223,
+        snprintf(lineBuffer, sizeof lineBuffer, tempDisplayF, (uint8_t)((float)rxBuffer[0] * 1.8 + 32.0), (char)223,
                  (uint8_t)((float)rxBuffer[1] * 1.8 + 32.0), (char)223);
 #else
-        snprintf(lineBuffer, sizeof lineBuffer, "CPU:%3u%cC M/B:%3u%cC ", rxBuffer[0], (char)223, rxBuffer[1], (char)223);
+        snprintf(lineBuffer, sizeof lineBuffer, tempDisplayC, rxBuffer[0], (char)223, rxBuffer[1], (char)223);
 #endif
         hd44780.setCursor(0, 3); //Write temperatures to LCD row 3
         hd44780.print(lineBuffer);
